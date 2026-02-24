@@ -1,6 +1,5 @@
-name: Build Linux
+name: 构建Linux版本
 on:
-  # 触发条件：PR、推送到指定分支或手动触发
   pull_request:
   push:
     branches: [ci, master, latest, 3.3-stable]
@@ -12,58 +11,56 @@ permissions:
 
 jobs:
   build-linux-clang:
-    name: Linux (Clang)
+    name: Linux Clang构建
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 10
     env:
       CC: clang
       CFLAGS: -Werror
     steps:
-      # 检出代码
       - uses: actions/checkout@v4
       
-      # 安装Linux图形库依赖和打包工具
-      - name: Install dependencies
+      - name: 安装系统依赖
         run: |
           sudo apt update
-          sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev libwayland-dev libxkbcommon-dev
-          sudo apt install fakeroot dpkg-dev debhelper
+          sudo apt install -y libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev libwayland-dev libxkbcommon-dev
+          sudo apt install -y fakeroot dpkg-dev debhelper cmake build-essential
 
-      # 配置Wayland后端共享库
-      - name: Configure Wayland shared library
-        run: cmake -S . -B build -D GLFW_BUILD_WAYLAND=1 -D BUILD_SHARED_LIBS=ON -D GLFW_BUILD_EXAMPLES=no -D GLFW_BUILD_TESTS=no -D GLFW_BUILD_DOCS=no
+      - name: 配置Wayland后端
+        run: cmake -S . -B build -D GLFW_BUILD_WAYLAND=ON -D BUILD_SHARED_LIBS=ON -D GLFW_BUILD_EXAMPLES=OFF -D GLFW_BUILD_TESTS=OFF -D GLFW_BUILD_DOCS=OFF
 
-      # 编译
-      - name: Build Wayland shared library
-        run: cmake --build build --parallel
+      - name: 编译项目
+        run: cmake --build build --parallel 4
 
-      # 安装到临时目录准备打包
-      - name: Install to temp directory
+      - name: 安装到临时目录
         run: |
           mkdir -p package/usr/local
           DESTDIR=package cmake --install build
 
-      # 创建DEBIAN控制文件
-      - name: Create DEBIAN control file
+      - name: 创建DEBIAN控制文件
         run: |
           mkdir -p package/DEBIAN
-          cat > package/DEBIAN/control << EOF
+          cat << 'EOF' > package/DEBIAN/control
           Package: glfw-wayland
           Version: 3.3.8
           Section: libs
           Priority: optional
           Architecture: amd64
           Maintainer: Build System <build@example.com>
-          Description: GLFW Wayland shared library
+          Description: GLFW Wayland共享库
           EOF
 
-      # 打包成.deb文件
-      - name: Build .deb package
+      - name: 构建Debian包
         run: dpkg-deb --build package glfw-wayland.deb
 
-      # 上传构建产物
-      - name: Upload artifact
+      - name: 验证构建产物
+        run: |
+          ls -la glfw-wayland.deb
+          file glfw-wayland.deb
+
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: glfw-wayland-package
+          name: glfw-wayland-软件包
           path: glfw-wayland.deb
+          retention-days: 30
