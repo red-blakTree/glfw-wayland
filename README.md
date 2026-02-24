@@ -85,7 +85,8 @@ cd glfw
 git apply glfw.patch
 
 # 配置并编译（启用 Wayland 支持）
-cmake -S . -B build -D GLFW_BUILD_WAYLAND=1 -D BUILD_SHARED_LIBS=ON -D GLFW_BUILD_EXAMPLES=no -D GLFW_BUILD_TESTS=no -D GLFW_BUILD_DOCS=no
+cmake -S . -B build -D GLFW_BUILD_WAYLAND=ON -D BUILD_SHARED_LIBS=ON -D GLFW_BUILD_EXAMPLES=no -D GLFW_BUILD_TESTS=no -D GLFW_BUILD_DOCS=no
+# GLFW_BUILD_WAYLAND=1不支持了GLFW_BUILD_WAYLAND=ON可以
 
 cd build
 make -j$(nproc)
