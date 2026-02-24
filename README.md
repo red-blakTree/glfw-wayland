@@ -1,183 +1,103 @@
-# GLFW
+GLFW
+![Build status](https://github.com/glfw/glfw/actions/workflows/build.yml/badge.svg)
+![Build status](https://ci.appveyor.com/api/projects/status/0kf0ct9831i5l6sp/branch/master?svg=true)
+简介
+GLFW 是一个开源、跨平台的 C 语言库，用于 OpenGL、OpenGL ES 和 Vulkan 应用程序的开发。它提供了一个简单且与平台无关的 API，用于创建窗口、上下文和表面，读取输入、处理事件等。
+GLFW 主要使用 C99 编写，在 macOS 平台上部分功能使用了 Objective-C。
+支持 Windows、macOS 和 Linux，并可在多种类 Unix 系统上运行。在 Linux 上同时支持 Wayland 和 X11 显示协议。
+GLFW 采用 zlib/libpng 许可证 发布。
+你可以从 官网下载 最新稳定版源码或预编译的 Windows/macOS 二进制文件。每个版本自 3.0 起均在 GitHub Releases 页面提供源码和二进制包。
+在线 文档 包含教程、开发指南和完整的 API 参考，也包含在源码包中（GitHub 自动生成的包除外）。
+最新版本的 更新日志 列出了新增功能、注意事项和弃用项。
+完整的 版本历史 记录了每个版本的所有用户可见变更。
+GLFW 的诞生离不开全球众多贡献者的工作——无论是报告问题、提供社区支持、提交代码、测试功能、校对文档，还是提出建议。
+特别说明：在 Wayland 下运行 Minecraft
+Minecraft（Java 版）默认通过 LWJGL 使用 GLFW 创建窗口。然而，官方 GLFW 在 Wayland 下存在一些限制（如无法设置窗口图标、无法聚焦窗口），会导致游戏启动失败或行为异常。
+为此，我们可以 手动编译一个修改版的 GLFW，绕过这些限制，从而让 Minecraft 在原生 Wayland 环境下正常运行。
+修改要点（基于 GLFW 3.4+）
 
-[![Build status](https://github.com/glfw/glfw/actions/workflows/build.yml/badge.svg)](https://github.com/glfw/glfw/actions)
-[![Build status](https://ci.appveyor.com/api/projects/status/0kf0ct9831i5l6sp/branch/master?svg=true)](https://ci.appveyor.com/project/elmindreda/glfw)
+    调整平台优先级：确保 Wayland 优先于 X11 被选中。
+    屏蔽非致命错误：将 GLFW_FEATURE_UNAVAILABLE 错误降级为警告，避免因不支持的功能（如设置窗口图标、聚焦窗口）导致程序退出。
 
-## Introduction
+具体补丁如下：
+diff
 
-GLFW is an Open Source, multi-platform library for OpenGL, OpenGL ES and Vulkan
-application development.  It provides a simple, platform-independent API for
-creating windows, contexts and surfaces, reading input, handling events, etc.
+--- a/src/platform.c
++++ b/src/platform.c
+@@ -49,12 +49,12 @@
+ #if defined(_GLFW_COCOA)
+     { GLFW_PLATFORM_COCOA, _glfwConnectCocoa },
+ #endif
+-#if defined(_GLFW_X11)
+-    { GLFW_PLATFORM_X11, _glfwConnectX11 },
+-#endif
+ #if defined(_GLFW_WAYLAND)
+     { GLFW_PLATFORM_WAYLAND, _glfwConnectWayland },
+ #endif
++#if defined(_GLFW_X11)
++    { GLFW_PLATFORM_X11, _glfwConnectX11 },
++#endif
+ };
 
-GLFW is written primarily in C99, with parts of macOS support being written in
-Objective-C.
+diff
 
-GLFW supports Windows, macOS and Linux, and also works on many other Unix-like
-systems.  On Linux both Wayland and X11 are supported.
+--- a/src/wl_window.c
++++ b/src/wl_window.c
+@@ -2109,8 +2109,7 @@
+ void _glfwSetWindowIconWayland(_GLFWwindow* window, int count, const GLFWimage* images)
+ {
+-    _glfwInputError(GLFW_FEATURE_UNAVAILABLE,
+-                    "Wayland: The platform does not support setting the window icon");
++    fprintf(stderr, "!!! Ignoring Error: Wayland: The platform does not support setting the window icon\n");
+ }
 
-GLFW is licensed under the [zlib/libpng
-license](https://www.glfw.org/license.html).
+@@ -2353,8 +2352,7 @@
+ void _glfwFocusWindowWayland(_GLFWwindow* window)
+ {
+-    _glfwInputError(GLFW_FEATURE_UNAVAILABLE,
+-                    "Wayland: The platform does not support setting the input focus");
++    fprintf(stderr, "!!! Ignoring Error: Wayland: The platform does not support setting the input focus\n");
+ }
 
-You can [download](https://www.glfw.org/download.html) the latest stable release
-as source or Windows and macOS binaries.  There are [release
-tags](https://github.com/glfw/glfw/releases) with source and binary archives
-attached for every version since 3.0.
+    💡 注意：上述修改不会真正实现“设置图标”或“聚焦窗口”的功能，但会阻止 GLFW 因这些缺失功能而报错退出，从而使 Minecraft 能继续运行。
 
-The [documentation](https://www.glfw.org/docs/latest/) is available online and is
-also included in source and binary archives, except those generated
-automatically by Github.  The documentation contains guides, a tutorial and the
-API reference.  The [release
-notes](https://www.glfw.org/docs/latest/news.html) list the new features,
-caveats and deprecations in the latest release.  The [version
-history](https://www.glfw.org/changelog.html) lists every user-visible change
-for every release.
+编译步骤
+bash
 
-GLFW exists because of the contributions of [many people](CONTRIBUTORS.md)
-around the world, whether by reporting bugs, providing community support, adding
-features, reviewing or testing code, debugging, proofreading docs, suggesting
-features or fixing bugs.
+# 克隆源码
+git clone https://github.com/glfw/glfw.git
+cd glfw
 
+# 应用上述补丁（保存为 glfw.patch 后）
+git apply glfw.patch
 
-## System requirements
+# 配置并编译（启用 Wayland 支持）
+cmake -S . -B build -D GLFW_BUILD_WAYLAND=1 -D BUILD_SHARED_LIBS=ON -D GLFW_BUILD_EXAMPLES=no -D GLFW_BUILD_TESTS=no -D GLFW_BUILD_DOCS=no
 
-GLFW supports Windows 7 and later and macOS 10.11 and later.  On GNOME Wayland,
-window decorations will be very basic unless the
-[libdecor](https://gitlab.freedesktop.org/libdecor/libdecor) package is
-installed.  Linux and other Unix-like systems running X11 are supported even
-without a desktop environment or modern extensions, although some features
-require a clipboard manager or a modern window manager.
+cd build
+make -j$(nproc)
+sudo make install  # 默认安装到 /usr/local/lib/libglfw.so
 
-See the [compatibility guide](https://www.glfw.org/docs/latest/compat.html)
-for more detailed information.
+NVIDIA 显卡用户额外设置
+如果你使用 NVIDIA 闭源驱动，可能还需要设置以下环境变量以避免 EGL 初始化失败：
+bash
 
-
-## Compiling GLFW
-
-GLFW supports compilation with Visual C++ (2013 and later), GCC and Clang.  Both
-Clang-CL and MinGW-w64 are supported.  Other C99 compilers will likely also
-work, but this is not regularly tested.
-
-There are [pre-compiled binaries](https://www.glfw.org/download.html)
-available for Windows and macOS.
-
-GLFW itself needs only CMake and the headers and libraries for your operating
-system and window system.  No other SDKs are required.
-
-See the [compilation guide](https://www.glfw.org/docs/latest/compile.html) for
-more information about compiling GLFW and the exact dependencies required for
-each window system.
-
-The examples and test programs depend on a number of tiny libraries.  These are
-bundled in the `deps/` directory.  The repository has no submodules.
-
- - [getopt\_port](https://github.com/kimgr/getopt_port/) for examples
-   with command-line options
- - [TinyCThread](https://github.com/tinycthread/tinycthread) for threaded
-   examples
- - [glad2](https://github.com/Dav1dde/glad) for loading OpenGL and Vulkan
-   functions
- - [linmath.h](https://github.com/datenwolf/linmath.h) for linear algebra in
-   examples
- - [Nuklear](https://github.com/Immediate-Mode-UI/Nuklear) for test and example UI
- - [stb\_image\_write](https://github.com/nothings/stb) for writing images to disk
-
-The documentation is generated with [Doxygen](https://doxygen.org/) when the
-library is built, provided CMake could find a sufficiently new version of it
-during configuration.
-
-
-## Using GLFW
-
-See the [HTML documentation](https://www.glfw.org/docs/latest/) for a tutorial,
-guides and the API reference.
+export __GL_THREADED_OPTIMIZATIONS=0
 
 
-## Contributing to GLFW
+更多兼容性信息请参阅 兼容性指南。
 
-See the [contribution
-guide](https://github.com/glfw/glfw/blob/master/docs/CONTRIBUTING.md) for
-more information.
+使用与贡献
 
-The `master` branch is the stable integration branch and _should_ always compile
-and run on all supported platforms.  Details of a newly added feature,
-including the public API, may change until it has been included in a release.
+    使用 GLFW：请阅读 官方文档
+    报告 Bug：请提交至 GitHub Issues
+    贡献代码：请阅读 贡献指南
 
-The `latest` branch is equivalent to the [highest numbered](https://semver.org/)
-release, although it may not always point to the same commit as the tag for that
-release.
+联系我们
 
-The `ci` branch is used to trigger continuous integration jobs for code under
-testing and should never be relied on for any purpose.
+    官网：https://www.glfw.org/
+    论坛：https://discourse.glfw.org/
+    GitHub：https://github.com/glfw/glfw
 
-
-## Reporting bugs
-
-Bugs are reported to our [issue tracker](https://github.com/glfw/glfw/issues).
-Please check the [contribution
-guide](https://github.com/glfw/glfw/blob/master/docs/CONTRIBUTING.md) for
-information on what to include when reporting a bug.
-
-
-## Changelog since 3.4
-
- - Added `GLFW_UNLIMITED_MOUSE_BUTTONS` input mode that allows mouse buttons beyond
-   the limit of the mouse button tokens to be reported (#2423)
- - Added `glfwGetEGLConfig` function to query the `EGLConfig` of a window (#2045)
- - Added `glfwGetGLXFBConfig` function to query the `GLXFBConfig` of a window (#1925)
- - Updated minimum CMake version to 3.16 (#2541)
- - Removed support for building with original MinGW (#2540)
- - [Win32] Removed support for Windows XP and Vista (#2505)
- - [Cocoa] Added `QuartzCore` framework as link-time dependency
- - [Cocoa] Removed support for OS X 10.10 Yosemite and earlier (#2506)
- - [Wayland] Bugfix: The fractional scaling related objects were not destroyed
- - [Wayland] Bugfix: `glfwInit` would segfault on compositor with no seat (#2517)
- - [Wayland] Bugfix: A drag entering a non-GLFW surface could cause a segfault
- - [Wayland] Bugfix: Ignore key repeat events when no window has keyboard focus (#2727)
- - [Wayland] Bugfix: Reset key repeat timer when window destroyed (#2741,#2727)
- - [Wayland] Bugfix: Memory would leak if reading a data offer failed midway
- - [Wayland] Bugfix: Retrieved cursor position would be incorrect when hovering over
-                     fallback decorations
- - [Wayland] Bugfix: Fallback decorations would report scroll events
- - [Wayland] Bugfix: Keyboard repeat events halted when any key is released (#2568)
- - [Wayland] Bugfix: Fallback decorations would show menu at wrong position
- - [Wayland] Bugfix: The cursor was not updated when clicking through from
-   a modal to a fallback decoration
- - [Wayland] Bugfix: The cursor position was not updated when clicking through
-   from a modal to the content area
- - [Wayland] Bugfix: free modules at end of terminate function to resolve
-   potential segmentation fault (#2744)
- - [Wayland] Bugfix: Confining or disabling the cursor could segfault on
-   compositors without `pointer-constraints-unstable-v1`
- - [Wayland] Bugfix: Key repeat did not function on very old compositors
- - [Wayland] Bugfix: The `libwayland-client` library was not unloaded at termination
- - [Wayland] Bugfix: Scroll events were sent twice on some versions of GNOME (#2494)
- - [Wayland] Bugfix: Two-dimensional scroll input was emitted as separate axes
- - [X11] Bugfix: Running without a WM could trigger an assert (#2593,#2601,#2631)
- - [X11] Bugfix: Occasional crash when an idle display awakes (#2766) 
- - [X11] Bugfix: Prevent BadWindow when creating small windows with a content scale
-   less than 1 (#2754)
- - [X11] Bugfix: Clamp width and height to >= 1 to prevent BadValue error and app exit
- - [X11] Bugfix: Floating windows silently became non-floating when hidden (#2276)
- - [X11] Bugfix: The `libXext` library was not unloaded at termination
- - [Linux] Bugfix: The header for `ioctl` was only implicitly included (#2778)
- - [Null] Added Vulkan 'window' surface creation via `VK_EXT_headless_surface`
- - [Null] Added EGL context creation on Mesa via `EGL_MESA_platform_surfaceless`
- - [EGL] Allowed native access on Wayland with `GLFW_CONTEXT_CREATION_API` set to
-   `GLFW_NATIVE_CONTEXT_API` (#2518)
-
-
-## Contact
-
-On [glfw.org](https://www.glfw.org/) you can find the latest version of GLFW, as
-well as news, documentation and other information about the project.
-
-If you have questions related to the use of GLFW, we have a
-[forum](https://discourse.glfw.org/).
-
-If you have a bug to report, a patch to submit or a feature you'd like to
-request, please file it in the
-[issue tracker](https://github.com/glfw/glfw/issues) on GitHub.
-
-Finally, if you're interested in helping out with the development of GLFW or
-porting it to your favorite platform, join us on the forum or GitHub.
-
+    本文档部分内容参考自：Ricardo's Blog - 让Minecraft运行在Wayland下
+    修改旨在帮助 Linux 用户在现代 Wayland 桌面环境中流畅运行 Minecraft。
