@@ -40,15 +40,13 @@ jobs:
       - name: 创建DEBIAN控制文件
         run: |
           mkdir -p package/DEBIAN
-          cat << 'EOF' > package/DEBIAN/control
-          Package: glfw-wayland
-          Version: 3.3.8
-          Section: libs
-          Priority: optional
-          Architecture: amd64
-          Maintainer: Build System <build@example.com>
-          Description: GLFW Wayland共享库
-          EOF
+          echo "Package: glfw-wayland" > package/DEBIAN/control
+          echo "Version: 3.3.8" >> package/DEBIAN/control
+          echo "Section: libs" >> package/DEBIAN/control
+          echo "Priority: optional" >> package/DEBIAN/control
+          echo "Architecture: amd64" >> package/DEBIAN/control
+          echo "Maintainer: Build System <build@example.com>" >> package/DEBIAN/control
+          echo "Description: GLFW Wayland共享库" >> package/DEBIAN/control
 
       - name: 构建Debian包
         run: dpkg-deb --build package glfw-wayland.deb
@@ -61,6 +59,6 @@ jobs:
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: glfw-wayland-软件包
+          name: glfw-wayland-package  # 使用纯英文名称避免编码问题
           path: glfw-wayland.deb
           retention-days: 30
